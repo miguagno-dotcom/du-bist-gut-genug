@@ -200,6 +200,55 @@ export default function SpreadsheetPage() {
   const [sheetData, setSheetData] = useState<string[][]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Custom user profile enrichments
+  const [customEnrichments, setCustomEnrichments] = useState<Record<string, Record<number, Record<number, string>>>>({});
+  const [enrichModal, setEnrichModal] = useState<{
+    isOpen: boolean;
+    sheetName: string;
+    rowIdx: number;
+    name: string;
+    url: string;
+    followers: string;
+    platform: string;
+    notes: string;
+  } | null>(null);
+
+  // Load custom enrichments from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("sheet_custom_enrichments");
+    if (saved) {
+      try {
+        setCustomEnrichments(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const saveCustomEnrichment = (sheet: string, rowIdx: number, colIdx: number, value: string) => {
+    setCustomEnrichments((prev) => {
+      const next = { ...prev };
+      if (!next[sheet]) next[sheet] = {};
+      if (!next[sheet][rowIdx]) next[sheet][rowIdx] = {};
+      next[sheet][rowIdx][colIdx] = value;
+      localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleEnrichClick = (originalRowIdx: number, rowValues: string[]) => {
+    setEnrichModal({
+      isOpen: true,
+      sheetName: activeSheet,
+      rowIdx: originalRowIdx,
+      name: rowValues[1] || "",
+      url: customEnrichments[activeSheet]?.[originalRowIdx]?.[6] || rowValues[6] || "",
+      followers: customEnrichments[activeSheet]?.[originalRowIdx]?.[7] || rowValues[7] || "",
+      platform: customEnrichments[activeSheet]?.[originalRowIdx]?.[5] || rowValues[5] || "",
+      notes: customEnrichments[activeSheet]?.[originalRowIdx]?.[11] || rowValues[11] || "",
+    });
+  };
   
   // Interactive spreadsheet states
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -273,29 +322,49 @@ export default function SpreadsheetPage() {
     return label;
   };
 
-  // Compute enriched sheet data (Afghan Influencer Targets, rows 2 to 13)
+  // Compute enriched sheet data (including custom enrichments)
   const enrichedSheetData = useMemo(() => {
     if (sheetData.length === 0) return [];
     
     return sheetData.map((row, rIdx) => {
-      const sheetEnrichments = ENRICHMENTS[activeSheet];
-      if (!sheetEnrichments || !sheetEnrichments[rIdx]) return row;
+      const sheetStaticEnrichments = ENRICHMENTS[activeSheet];
+      const sheetCustomEnrichments = customEnrichments[activeSheet];
       
       const newRow = [...row];
-      Object.keys(sheetEnrichments[rIdx]).forEach((cKey) => {
-        const cIdx = parseInt(cKey);
-        if (cIdx < newRow.length) {
-          newRow[cIdx] = sheetEnrichments[rIdx][cIdx];
-        } else {
-          while (newRow.length <= cIdx) {
-            newRow.push("");
+      
+      // Apply static enrichments
+      if (sheetStaticEnrichments && sheetStaticEnrichments[rIdx]) {
+        Object.keys(sheetStaticEnrichments[rIdx]).forEach((cKey) => {
+          const cIdx = parseInt(cKey);
+          if (cIdx < newRow.length) {
+            newRow[cIdx] = sheetStaticEnrichments[rIdx][cIdx];
+          } else {
+            while (newRow.length <= cIdx) {
+              newRow.push("");
+            }
+            newRow[cIdx] = sheetStaticEnrichments[rIdx][cIdx];
           }
-          newRow[cIdx] = sheetEnrichments[rIdx][cIdx];
-        }
-      });
+        });
+      }
+      
+      // Apply custom enrichments
+      if (sheetCustomEnrichments && sheetCustomEnrichments[rIdx]) {
+        Object.keys(sheetCustomEnrichments[rIdx]).forEach((cKey) => {
+          const cIdx = parseInt(cKey);
+          if (cIdx < newRow.length) {
+            newRow[cIdx] = sheetCustomEnrichments[rIdx][cIdx];
+          } else {
+            while (newRow.length <= cIdx) {
+              newRow.push("");
+            }
+            newRow[cIdx] = sheetCustomEnrichments[rIdx][cIdx];
+          }
+        });
+      }
+      
       return newRow;
     });
-  }, [sheetData, activeSheet]);
+  }, [sheetData, activeSheet, customEnrichments]);
 
   // Determine grid dimensions based on loaded data
   const gridDimensions = useMemo(() => {
@@ -551,11 +620,21 @@ export default function SpreadsheetPage() {
                     
                     // Determine cell alignment & special styles
                     const isNum = isNumeric(cellVal);
-                    const isEnriched = ENRICHMENTS[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined;
+                    const isEnriched = 
+                      (ENRICHMENTS[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined) ||
+                      (customEnrichments[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined);
                     
                     const cellClass = `grid-cell ${isSelected ? "selected" : ""} ${
                       isSpreadsheetHeader ? "data-header-cell" : ""
                     } ${isNum ? "cell-number" : ""} ${isEnriched ? "enriched-cell" : ""}`;
+
+                    // Show enrich button if the cell is empty, the target has a name, and it is Handle/URL (6) or Followers (7)
+                    const showEnrichButton = 
+                      !isSpreadsheetHeader && 
+                      hasData && 
+                      !cellVal && 
+                      rowValues[1] && 
+                      (colIndex === 6 || colIndex === 7);
 
                     return (
                       <td
@@ -570,7 +649,20 @@ export default function SpreadsheetPage() {
                         }}
                         title={cellVal}
                       >
-                        {renderCellContent(cellVal, isSpreadsheetHeader)}
+                        {showEnrichButton ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEnrichClick(originalRowIndex, rowValues);
+                            }}
+                            className="text-red-500 hover:text-white border border-dashed border-red-800/60 hover:border-red-500 hover:bg-red-950/40 rounded px-2 py-0.5 text-[10px] font-semibold transition-all duration-150 active:scale-95 flex items-center gap-1 mx-auto"
+                          >
+                            <Plus size={10} />
+                            <span>Enrich</span>
+                          </button>
+                        ) : (
+                          renderCellContent(cellVal, isSpreadsheetHeader)
+                        )}
                       </td>
                     );
                   })}
@@ -619,6 +711,104 @@ export default function SpreadsheetPage() {
           <span>Last sync: {syncTime || "Never"}</span>
         </div>
       </footer>
+
+      {/* Enrich Modal */}
+      {enrichModal && enrichModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center fade-in p-4">
+          <div className="bg-[#121214] border border-[#2c2c30] rounded-xl max-w-md w-full shadow-2xl overflow-hidden shadow-red-950/20 text-left">
+            {/* Header */}
+            <div className="bg-[#1a1a1f] border-b border-[#222225] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="text-red-500">✦</span> Enrich Profile: {enrichModal.name}
+              </h2>
+              <button
+                onClick={() => setEnrichModal(null)}
+                className="text-gray-400 hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Form Body */}
+            <div className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Main Platform
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Instagram, TikTok, YouTube, X"
+                  value={enrichModal.platform}
+                  onChange={(e) => setEnrichModal({ ...enrichModal, platform: e.target.value })}
+                  className="w-full bg-[#0d0d0f] border border-[#2c2c30] focus:border-red-500 rounded-md px-3 py-2 text-xs text-gray-200 outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Handle / URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. https://www.instagram.com/username/"
+                  value={enrichModal.url}
+                  onChange={(e) => setEnrichModal({ ...enrichModal, url: e.target.value })}
+                  className="w-full bg-[#0d0d0f] border border-[#2c2c30] focus:border-red-500 rounded-md px-3 py-2 text-xs text-gray-200 outline-none transition-colors font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Approx Followers
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 250K IG, 1.2M TikTok"
+                  value={enrichModal.followers}
+                  onChange={(e) => setEnrichModal({ ...enrichModal, followers: e.target.value })}
+                  className="w-full bg-[#0d0d0f] border border-[#2c2c30] focus:border-red-500 rounded-md px-3 py-2 text-xs text-gray-200 outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                  Campaign Notes
+                </label>
+                <textarea
+                  placeholder="Add custom outreach notes..."
+                  value={enrichModal.notes}
+                  rows={3}
+                  onChange={(e) => setEnrichModal({ ...enrichModal, notes: e.target.value })}
+                  className="w-full bg-[#0d0d0f] border border-[#2c2c30] focus:border-red-500 rounded-md px-3 py-2 text-xs text-gray-200 outline-none transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="bg-[#1a1a1f] border-t border-[#222225] px-6 py-4 flex justify-end gap-2">
+              <button
+                onClick={() => setEnrichModal(null)}
+                className="bg-[#2a2a30] hover:bg-[#32323a] text-gray-300 px-4 py-2 rounded-md text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 5, enrichModal.platform);
+                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 6, enrichModal.url);
+                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 7, enrichModal.followers);
+                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 11, enrichModal.notes);
+                  setEnrichModal(null);
+                  setStatusText(`Enriched ${enrichModal.name} successfully`);
+                  setTimeout(() => setStatusText("Ready"), 2000);
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-xs font-semibold transition-colors shadow-lg shadow-red-900/20"
+              >
+                Save Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
