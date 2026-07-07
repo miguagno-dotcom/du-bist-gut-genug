@@ -249,6 +249,34 @@ export default function SpreadsheetPage() {
       notes: customEnrichments[activeSheet]?.[originalRowIdx]?.[11] || rowValues[11] || "",
     });
   };
+
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+
+  const handleAiEnrich = async () => {
+    if (!enrichModal) return;
+    try {
+      setAiLoading(true);
+      const res = await fetch(`/api/enrich?name=${encodeURIComponent(enrichModal.name)}`);
+      if (!res.ok) throw new Error("AI Agent failed to respond");
+      const data = await res.json();
+      if (data.success) {
+        setEnrichModal((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            url: data.url || prev.url,
+            followers: data.followers || prev.followers,
+            platform: data.platform || prev.platform,
+            notes: data.notes || prev.notes,
+          };
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAiLoading(false);
+    }
+  };
   
   // Interactive spreadsheet states
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -732,8 +760,25 @@ export default function SpreadsheetPage() {
             <div className="p-6 flex flex-col gap-4">
               {/* Quick Search Assistant */}
               <div className="bg-[#0d0d0f] border border-[#222225] rounded-lg p-3">
-                <label className="block text-[10px] font-bold text-red-500 uppercase tracking-wider mb-2">
-                  ✦ Quick Search Assistant
+                <button
+                  disabled={aiLoading}
+                  onClick={handleAiEnrich}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-950/40 disabled:text-red-700 text-white py-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-red-900/30 mb-3"
+                >
+                  {aiLoading ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      <span>AI Agent Querying Search Index...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✦ AI Auto-Enrich Profile</span>
+                    </>
+                  )}
+                </button>
+
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  OR USE MANUAL QUICK SEARCH
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   <button
