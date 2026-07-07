@@ -63,21 +63,23 @@ export async function GET(request: Request) {
           {
             role: "system",
             content: `You are an expert social media researcher and profile enricher.
-Your job is to analyze the provided search results to find the official, primary active social media profile for the influencer.
+Your job is to analyze the provided search results to find the primary active social media profile for the target influencer.
 
-Rules:
-1. Primary Profile: Prefer Instagram first, then TikTok, then YouTube, then X (Twitter).
-2. Clean URLs: Provide direct, fully-formed profile links (e.g. 'https://www.instagram.com/username/'). Strip off redirections or search tags.
-3. Followers: Look for the current approximate follower count on the chosen platform (e.g., '1.2M IG', '450K TikTok', '25K X').
-4. Notes: Write a brief, high-credibility outreach summary describing their focus, niche, and audience.
-5. Format: Return ONLY a raw JSON object matching the exact structure below. Do not wrap in markdown blocks, backticks, or write any explanations.
+Rules & Conditions:
+1. Target Search: Focus on finding profiles matching the clean name. 
+2. Loose Matching & Afghan Context: If the search results do not show a direct, exact-match profile URL, look for related profiles of individuals sharing the same name who have a solid foundation of followers (typically 5K+ or 10K+ followers) and who fit the profile of an **Afghan Influencer** (e.g., cricketers, models, journalists, TV hosts, digital creators, authors, or public figures connected to Afghanistan, Afghan sports, or local media).
+3. Primary Profile: Prefer Instagram first, then TikTok, then YouTube, then X (Twitter), then Facebook.
+4. Clean URLs: Provide direct, clean profile links (e.g., 'https://www.instagram.com/username/'). Strip off redirections or search query tags.
+5. Followers: Look for the current approximate follower count on the chosen platform (e.g., '150K IG', '25K TikTok').
+6. Notes: Write a brief, professional note explaining why they are suitable as an Afghan influencer, their niche, and their follower foundation.
+7. Format: Return ONLY a raw JSON object matching the structure below. Do not wrap in markdown code blocks or add extra explanation.
 
 JSON Structure:
 {
   "platform": "Instagram",
   "url": "https://www.instagram.com/username/",
   "followers": "500K IG",
-  "notes": "Description of content focus and suitability."
+  "notes": "Outreach notes on why they fit the campaign as an Afghan influencer."
 }`
           },
           {

@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Mail,
   UserCheck,
-  Sliders
+  Sliders,
+  Sparkles
 } from "lucide-react";
 
 interface SheetMetadata {
@@ -277,6 +278,81 @@ export default function SpreadsheetPage() {
       setAiLoading(false);
     }
   };
+
+  const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [bulkProgress, setBulkProgress] = useState<string>("");
+
+  const handleBulkAiEnrich = async () => {
+    if (!sheetData || sheetData.length === 0) return;
+    
+    // Find empty rows (where Col 1 Name is not empty, but Col 6 URL and Col 7 Followers are empty)
+    const emptyRowsToEnrich: { originalIndex: number; name: string }[] = [];
+    
+    sheetData.forEach((row, rIdx) => {
+      if (rIdx === 0) return; // Skip header
+      
+      const name = row[1];
+      const hasUrl = customEnrichments[activeSheet]?.[rIdx]?.[6] || row[6];
+      const hasFollowers = customEnrichments[activeSheet]?.[rIdx]?.[7] || row[7];
+      
+      if (name && !hasUrl && !hasFollowers) {
+        emptyRowsToEnrich.push({ originalIndex: rIdx, name });
+      }
+    });
+
+    if (emptyRowsToEnrich.length === 0) {
+      setStatusText("All rows are already enriched!");
+      setTimeout(() => setStatusText("Ready"), 2000);
+      return;
+    }
+
+    try {
+      setBulkLoading(true);
+      setStatusText(`Starting bulk enrichment for ${emptyRowsToEnrich.length} profiles...`);
+      
+      for (let i = 0; i < emptyRowsToEnrich.length; i++) {
+        const item = emptyRowsToEnrich[i];
+        setBulkProgress(`${i + 1}/${emptyRowsToEnrich.length}`);
+        setStatusText(`Enriching ${item.name} (${i + 1}/${emptyRowsToEnrich.length})...`);
+        
+        try {
+          const res = await fetch(`/api/enrich?name=${encodeURIComponent(item.name)}`);
+          if (!res.ok) throw new Error("Agent failed");
+          const data = await res.json();
+          
+          if (data.success) {
+            setCustomEnrichments((prev) => {
+              const next = { ...prev };
+              if (!next[activeSheet]) next[activeSheet] = {};
+              if (!next[activeSheet][item.originalIndex]) next[activeSheet][item.originalIndex] = {};
+              
+              next[activeSheet][item.originalIndex][5] = data.platform || "Instagram";
+              next[activeSheet][item.originalIndex][6] = data.url || "";
+              next[activeSheet][item.originalIndex][7] = data.followers || "TBD";
+              next[activeSheet][item.originalIndex][11] = data.notes || "";
+              
+              localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
+              return next;
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to enrich ${item.name}:`, err);
+        }
+        
+        // Sleep to avoid rate limits
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      
+      setStatusText(`Successfully enriched ${emptyRowsToEnrich.length} profiles!`);
+      setTimeout(() => setStatusText("Ready"), 3000);
+    } catch (e) {
+      console.error(e);
+      setStatusText("Bulk enrichment encountered an error");
+    } finally {
+      setBulkLoading(false);
+      setBulkProgress("");
+    }
+  };
   
   // Interactive spreadsheet states
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -531,6 +607,27 @@ export default function SpreadsheetPage() {
               <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
               <span className="hidden xs:inline">Sync Sheet</span>
             </button>
+
+            {activeSheet === "Afghan Influencer Targets" && (
+              <button
+                disabled={bulkLoading || loading}
+                onClick={handleBulkAiEnrich}
+                className="bg-red-950/60 hover:bg-red-900/60 text-red-400 border border-red-900/50 disabled:bg-red-950/20 disabled:text-red-900/40 px-3 py-1.5 rounded-md flex items-center gap-2 transition-all font-semibold active:scale-95 shadow-md"
+                title="Bulk AI Enrich Empty Rows"
+              >
+                {bulkLoading ? (
+                  <>
+                    <RefreshCw size={12} className="animate-spin text-red-500" />
+                    <span>Enriching {bulkProgress}...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} className="text-red-500" />
+                    <span>Bulk AI Enrich</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
