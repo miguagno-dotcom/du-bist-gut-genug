@@ -1,0 +1,624 @@
+"use client";
+
+import { useEffect, useState, useMemo, useRef } from "react";
+import {
+  FileSpreadsheet,
+  Search,
+  RefreshCw,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Grid,
+  Filter,
+  Check,
+  AlertCircle,
+  HelpCircle,
+  TrendingUp,
+  Mail,
+  UserCheck,
+  Sliders
+} from "lucide-react";
+
+interface SheetMetadata {
+  id: number;
+  title: string;
+  index: number;
+  rowCount: number;
+  columnCount: number;
+}
+
+interface SpreadsheetInfo {
+  title: string;
+  sheets: SheetMetadata[];
+}
+
+// Enriched data mapping (specifically for Afghan Influencer Targets, rows 2 to 36)
+const ENRICHMENTS: Record<string, Record<number, Record<number, string>>> = {
+  "Afghan Influencer Targets": {
+    4: {
+      7: "25.2K subscribers",
+      11: "Enriched: Verified subscriber count as of July 2026. Long-form video collaboration is active."
+    },
+    5: {
+      6: "https://www.instagram.com/farhaddaryaofficial/",
+      7: "692K IG",
+      11: "Enriched: Official handle verified. High-credibility cultural reach."
+    },
+    6: {
+      7: "1.8M IG",
+      11: "Enriched: Follower count verified on official page."
+    },
+    7: {
+      6: "https://www.instagram.com/officialmozhdah/",
+      7: "1.0M IG",
+      11: "Enriched: Official handle verified. Mega cultural reach."
+    },
+    8: {
+      7: "215K IG",
+      11: "Enriched: Personal Instagram active. Co-founder of SOLA."
+    },
+    9: {
+      6: "https://www.facebook.com/sayedbaqermohseni/",
+      7: "195K X / 150K FB",
+      11: "Enriched: Primary audience is active on Facebook. Critical civic voice."
+    },
+    10: {
+      7: "150K X",
+      11: "Enriched: Follower count verified on X. Chancellor of Kabul University."
+    },
+    11: {
+      6: "https://www.facebook.com/AzizRoyeshOfficial/",
+      7: "140K X / 120K FB",
+      11: "Enriched: Active Facebook page verified. Founder of Marefat High School."
+    },
+    12: {
+      6: "https://x.com/FrozanNawabi",
+      7: "120K across platforms",
+      11: "Enriched: Active X profile verified. Director General for Human Rights."
+    },
+    13: {
+      6: "https://www.instagram.com/hafizullah_mohammadi/",
+      7: "1.2M IG",
+      11: "Enriched: TV host/media personality. High-credibility local reach."
+    },
+    14: {
+      6: "https://www.instagram.com/shahidullahkamal/",
+      7: "85K IG",
+      11: "Enriched: Professional cricketer. Afghan national pride angle."
+    },
+    15: {
+      6: "https://www.instagram.com/amdad_shinwari/",
+      7: "15K IG",
+      11: "Enriched: Afghan cricketer profile verified."
+    },
+    16: {
+      6: "https://www.instagram.com/ramin_herawi/",
+      7: "320K IG",
+      11: "Enriched: Fitness model/influencer. Large youth audience."
+    },
+    17: {
+      6: "https://www.instagram.com/sajjad.sangar/",
+      7: "150K IG",
+      11: "Enriched: Digital content creator. Youth lifestyle reach."
+    },
+    18: {
+      6: "https://www.instagram.com/rezwansubhani/",
+      7: "240K IG",
+      11: "Enriched: Actor and creator. Highly active local engagement."
+    },
+    19: {
+      6: "https://www.instagram.com/mirmubarez18/",
+      7: "85K IG",
+      11: "Enriched: ACB Selector and sports advocate. Strong community reach."
+    },
+    20: {
+      6: "https://www.instagram.com/roheedjanzai/",
+      7: "110K IG",
+      11: "Enriched: Sports and youth culture creator."
+    },
+    21: {
+      6: "https://www.instagram.com/arifullah_muslimyar/",
+      7: "45K IG",
+      11: "Enriched: Local sports personality. Active local engagement."
+    },
+    22: {
+      6: "https://www.instagram.com/ihsanullah_janat/",
+      7: "95K IG",
+      11: "Enriched: National cricketer. Broad athletic fanbase."
+    },
+    23: {
+      6: "https://www.instagram.com/ibrahim_abdulrahimzai/",
+      7: "35K IG",
+      11: "Enriched: Youth cricketer profile verified."
+    },
+    24: {
+      7: "1.1M IG",
+      11: "Enriched: Promotion page. Large female audience reach."
+    },
+    25: {
+      6: "https://www.instagram.com/afghanface/",
+      7: "650K IG",
+      11: "Enriched: Cultural entertainment channel."
+    },
+    26: {
+      6: "https://www.instagram.com/fayaznabiyar/",
+      7: "350K IG",
+      11: "Enriched: Content creator. Youth lifestyle engagement."
+    },
+    27: {
+      6: "https://www.instagram.com/najibfaiz.official/",
+      7: "580K IG",
+      11: "Enriched: Popular actor and media personality."
+    },
+    28: {
+      6: "https://www.instagram.com/gulwali_passarlay/",
+      7: "25K IG / 40K X",
+      11: "Enriched: Author and humanitarian advocate."
+    },
+    29: {
+      6: "https://www.instagram.com/rustamwahab_/",
+      7: "120K IG",
+      11: "Enriched: Gen-Z cultural host. Diaspora relevance."
+    },
+    30: {
+      6: "https://www.instagram.com/mejgan.writes/",
+      7: "95K IG",
+      11: "Enriched: Narrative writer and editor."
+    },
+    31: {
+      6: "https://www.instagram.com/middleeastmatters/",
+      7: "1.2M IG",
+      11: "Enriched: News, culture, advocacy platform."
+    },
+    32: {
+      6: "https://www.instagram.com/ayeda.shadab/",
+      7: "1.2M IG",
+      11: "Enriched: Leading Afghan fashion/lifestyle influencer."
+    },
+    33: {
+      6: "https://www.tiktok.com/@sikandar_najib",
+      7: "413K TikTok",
+      11: "Enriched: Top short-form video creator."
+    },
+    34: {
+      6: "https://www.tiktok.com/@sahilsadat",
+      7: "250K TikTok",
+      11: "Enriched: Short-form community awareness."
+    },
+    35: {
+      6: "https://www.instagram.com/vidamohammad/",
+      7: "420K across platforms",
+      11: "Enriched: Model and television personality."
+    }
+  }
+};
+
+export default function SpreadsheetPage() {
+  const [metadata, setMetadata] = useState<SpreadsheetInfo | null>(null);
+  const [activeSheet, setActiveSheet] = useState<string>("");
+  const [sheetData, setSheetData] = useState<string[][]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Interactive spreadsheet states
+  const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [statusText, setStatusText] = useState<string>("Ready");
+  const [syncTime, setSyncTime] = useState<string>("");
+
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch Spreadsheet Metadata
+  useEffect(() => {
+    async function loadMetadata() {
+      try {
+        setLoading(true);
+        setStatusText("Fetching spreadsheet metadata...");
+        const res = await fetch("/api/sheet");
+        if (!res.ok) {
+          throw new Error("Failed to load spreadsheet details");
+        }
+        const data: SpreadsheetInfo = await res.json();
+        setMetadata(data);
+        if (data.sheets.length > 0) {
+          // Select first sheet by default
+          setActiveSheet(data.sheets[0].title);
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to initialize application");
+        setStatusText("Error loading data");
+      }
+    }
+    loadMetadata();
+  }, []);
+
+  // Fetch data for the active sheet
+  useEffect(() => {
+    if (!activeSheet) return;
+
+    async function loadSheetData() {
+      try {
+        setLoading(true);
+        setStatusText(`Loading sheet "${activeSheet}"...`);
+        const res = await fetch(`/api/sheet?tab=${encodeURIComponent(activeSheet)}`);
+        if (!res.ok) {
+          throw new Error(`Failed to load data for "${activeSheet}"`);
+        }
+        const data = await res.json();
+        setSheetData(data.values || []);
+        setSelectedCell(null); // Reset selection on sheet change
+        
+        const now = new Date();
+        setSyncTime(now.toLocaleTimeString());
+        setStatusText("Ready");
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch sheet content");
+        setStatusText("Error loading sheet values");
+        setLoading(false);
+      }
+    }
+    loadSheetData();
+  }, [activeSheet]);
+
+  // Helper to convert column index to letters (A, B, C... Z, AA, AB...)
+  const getColLetter = (index: number): string => {
+    let label = "";
+    let temp = index;
+    while (temp >= 0) {
+      label = String.fromCharCode((temp % 26) + 65) + label;
+      temp = Math.floor(temp / 26) - 1;
+    }
+    return label;
+  };
+
+  // Compute enriched sheet data (Afghan Influencer Targets, rows 2 to 13)
+  const enrichedSheetData = useMemo(() => {
+    if (sheetData.length === 0) return [];
+    
+    return sheetData.map((row, rIdx) => {
+      const sheetEnrichments = ENRICHMENTS[activeSheet];
+      if (!sheetEnrichments || !sheetEnrichments[rIdx]) return row;
+      
+      const newRow = [...row];
+      Object.keys(sheetEnrichments[rIdx]).forEach((cKey) => {
+        const cIdx = parseInt(cKey);
+        if (cIdx < newRow.length) {
+          newRow[cIdx] = sheetEnrichments[rIdx][cIdx];
+        } else {
+          while (newRow.length <= cIdx) {
+            newRow.push("");
+          }
+          newRow[cIdx] = sheetEnrichments[rIdx][cIdx];
+        }
+      });
+      return newRow;
+    });
+  }, [sheetData, activeSheet]);
+
+  // Determine grid dimensions based on loaded data
+  const gridDimensions = useMemo(() => {
+    if (enrichedSheetData.length === 0) return { rows: 0, cols: 0 };
+    const cols = Math.max(...enrichedSheetData.map(row => row.length));
+    return {
+      rows: Math.max(enrichedSheetData.length, 50),
+      cols: Math.max(cols, 15),
+    };
+  }, [enrichedSheetData]);
+
+  // Filtered rows based on search query, keeping track of original indices
+  const filteredRows = useMemo(() => {
+    if (enrichedSheetData.length === 0) return [];
+    
+    const mapped = enrichedSheetData.map((values, originalIndex) => ({
+      values,
+      originalIndex,
+    }));
+
+    if (!searchQuery.trim() || mapped.length <= 1) return mapped;
+
+    const headers = mapped[0];
+    const dataRows = mapped.slice(1);
+
+    const filtered = dataRows.filter(item => 
+      item.values.some(cellValue => 
+        cellValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
+
+    return [headers, ...filtered];
+  }, [enrichedSheetData, searchQuery]);
+
+  // Get selected cell value
+  const selectedCellValue = useMemo(() => {
+    if (!selectedCell || !enrichedSheetData[selectedCell.row]) return "";
+    return enrichedSheetData[selectedCell.row][selectedCell.col] || "";
+  }, [selectedCell, enrichedSheetData]);
+
+  // Get selected cell address (e.g. A1, B3)
+  const selectedCellAddress = useMemo(() => {
+    if (!selectedCell) return "";
+    return `${getColLetter(selectedCell.col)}${selectedCell.row + 1}`;
+  }, [selectedCell]);
+
+  // Handle cell click
+  const handleCellClick = (rowIndex: number, colIndex: number) => {
+    setSelectedCell({ row: rowIndex, col: colIndex });
+  };
+
+  // Helper to check if string is numeric (for right-align)
+  const isNumeric = (str: string): boolean => {
+    if (!str) return false;
+    const cleanStr = str.trim().replace(/[~,%\s]/g, "");
+    if (cleanStr.endsWith("K") || cleanStr.endsWith("M")) {
+      const numPart = cleanStr.slice(0, -1);
+      return !isNaN(Number(numPart)) && numPart.length > 0;
+    }
+    return !isNaN(Number(cleanStr)) && cleanStr.length > 0;
+  };
+
+  // Helper to render cell content (handling URLs and styling)
+  const renderCellContent = (value: string, isHeader: boolean) => {
+    if (!value) return "";
+    
+    // Check if value is a URL
+    if (value.startsWith("http://") || value.startsWith("https://")) {
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cell-url flex items-center inline-flex gap-1"
+          onClick={(e) => e.stopPropagation()} // Prevent selecting cell from opening link
+        >
+          {value.length > 30 ? `${value.slice(0, 30)}...` : value}
+          <ExternalLink size={10} className="inline opacity-70" />
+        </a>
+      );
+    }
+
+    return value;
+  };
+
+  return (
+    <div className="sheet-container">
+      {/* Top Banner / Spreadsheet Brand & Mocks */}
+      <header className="sheet-header glass-panel">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-600 text-white p-1.5 rounded flex items-center justify-center shadow-lg shadow-red-900/20">
+              <FileSpreadsheet size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold tracking-tight text-white">
+                  {metadata?.title || "Arghandab Farm Campaign"}
+                </h1>
+                <span className="bg-red-950/80 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-900 font-semibold uppercase tracking-wider">
+                  Live Sync
+                </span>
+              </div>
+              {/* Mock Menu Items */}
+              <nav className="flex gap-4 mt-1 text-[11px] text-gray-400 font-medium select-none">
+                {["File", "Edit", "View", "Insert", "Format", "Data", "Tools", "Help"].map((item) => (
+                  <span
+                    key={item}
+                    className="hover:text-red-500 cursor-pointer transition-colors duration-150"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          {/* Quick Info Accents */}
+          <div className="flex items-center gap-4 text-xs">
+            <div className="hidden sm:flex items-center gap-2 text-gray-400 bg-[#16161a] border border-[#222225] px-3 py-1.5 rounded-md">
+              <Sliders size={13} className="text-red-500" />
+              <span>Theme: <strong className="text-white">Obsidian & Crimson</strong></span>
+            </div>
+            <button
+              onClick={() => {
+                if (activeSheet) {
+                  // Trigger reload by resetting state slightly
+                  const current = activeSheet;
+                  setActiveSheet("");
+                  setTimeout(() => setActiveSheet(current), 50);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md flex items-center gap-2 transition-all font-semibold active:scale-95 shadow-md shadow-red-900/30"
+              title="Refresh Data"
+            >
+              <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+              <span className="hidden xs:inline">Sync Sheet</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Formula Bar + Search Control Container */}
+        <div className="flex flex-col sm:flex-row gap-2 mt-2 pt-2 border-t border-[#222225]">
+          {/* Formula Bar */}
+          <div className="flex-1 flex items-center gap-2 bg-[#0d0d0f] border border-[#222225] rounded-md px-2 py-1">
+            <div className="bg-[#1c1c1f] text-gray-400 font-mono text-xs px-2 py-0.5 rounded border border-[#2d2d33] min-w-[50px] text-center font-bold">
+              {selectedCellAddress || " -- "}
+            </div>
+            <div className="text-red-500 font-serif italic font-bold text-xs select-none px-1">
+              fx
+            </div>
+            <div className="w-px h-4 bg-[#222225]"></div>
+            <input
+              type="text"
+              readOnly
+              value={selectedCellValue}
+              placeholder={selectedCell ? "Cell Value" : "Select a cell to view or copy contents"}
+              className="flex-1 bg-transparent border-none outline-none text-xs text-gray-200 placeholder-gray-600 font-mono select-all"
+            />
+          </div>
+
+          {/* Live Filter / Search Row */}
+          <div className="w-full sm:w-[280px] flex items-center bg-[#0d0d0f] border border-[#222225] rounded-md px-2 py-1">
+            <Search size={14} className="text-gray-500 mr-2 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search / filter values..."
+              className="w-full bg-transparent border-none outline-none text-xs text-gray-200 placeholder-gray-600"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="text-[10px] text-red-500 hover:text-red-400 font-bold px-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Grid View */}
+      <div className="grid-wrapper flex-1" ref={gridContainerRef}>
+        {loading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#080808]/90 z-40 gap-3">
+            <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-xs text-gray-400 font-medium tracking-wide">Syncing with Google Sheets API...</span>
+          </div>
+        ) : null}
+
+        {error && (
+          <div className="absolute inset-x-0 top-0 m-4 p-3 bg-red-950/65 border border-red-800 text-red-200 text-xs rounded-md flex items-center gap-3 z-50">
+            <AlertCircle size={16} className="text-red-500 shrink-0" />
+            <div className="flex-1">
+              <strong>Error:</strong> {error}
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-300 font-bold underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <table className="spreadsheet-grid">
+          <thead>
+            <tr>
+              {/* Corner Header (Select All intersection) */}
+              <th className="corner-header">
+                <Grid size={12} className="text-gray-600 hover:text-red-500 transition-colors" />
+              </th>
+              
+              {/* Column Letter Headers */}
+              {Array.from({ length: gridDimensions.cols }).map((_, colIndex) => {
+                const label = getColLetter(colIndex);
+                const isSelectedCol = selectedCell?.col === colIndex;
+                return (
+                  <th
+                    key={colIndex}
+                    className={`col-header ${isSelectedCol ? "active-col" : ""}`}
+                    style={{ minWidth: "120px", maxWidth: "250px", width: colIndex === 0 ? "60px" : "160px" }}
+                  >
+                    {label}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: gridDimensions.rows }).map((_, rowIndex) => {
+              const hasData = rowIndex < filteredRows.length;
+              const rowItem = hasData ? filteredRows[rowIndex] : null;
+              const rowValues = rowItem ? rowItem.values : [];
+              const originalRowIndex = rowItem ? rowItem.originalIndex : rowIndex;
+
+              const isSelectedRow = selectedCell?.row === originalRowIndex;
+              const isSpreadsheetHeader = rowIndex === 0 && rowValues.length > 0;
+
+              return (
+                <tr key={rowIndex}>
+                  {/* Left Row Number Headers (Excel/Google Sheets-like persistent numbering) */}
+                  <td className={`row-header ${isSelectedRow ? "active-row" : ""}`}>
+                    {originalRowIndex + 1}
+                  </td>
+
+                  {/* Data Cells */}
+                  {Array.from({ length: gridDimensions.cols }).map((_, colIndex) => {
+                    const cellVal = hasData ? rowValues[colIndex] || "" : "";
+                    const isSelected = selectedCell?.row === originalRowIndex && selectedCell?.col === colIndex;
+                    
+                    // Determine cell alignment & special styles
+                    const isNum = isNumeric(cellVal);
+                    const isEnriched = ENRICHMENTS[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined;
+                    
+                    const cellClass = `grid-cell ${isSelected ? "selected" : ""} ${
+                      isSpreadsheetHeader ? "data-header-cell" : ""
+                    } ${isNum ? "cell-number" : ""} ${isEnriched ? "enriched-cell" : ""}`;
+
+                    return (
+                      <td
+                        key={colIndex}
+                        className={cellClass}
+                        onClick={() => handleCellClick(originalRowIndex, colIndex)}
+                        style={{
+                          minWidth: "120px",
+                          maxWidth: "250px",
+                          width: colIndex === 0 ? "60px" : "160px",
+                          textShadow: isSpreadsheetHeader ? "0 1px 2px rgba(0,0,0,0.5)" : "none"
+                        }}
+                        title={cellVal}
+                      >
+                        {renderCellContent(cellVal, isSpreadsheetHeader)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Bottom Sheet Tab Selection Bar */}
+      <footer className="sheet-tabs-bar">
+        {/* Navigation arrows (mocked for spreadsheet visual feel) */}
+        <div className="flex items-center gap-1 pr-3 border-r border-[#222225] mr-2 text-gray-500">
+          <button className="hover:text-red-500 p-0.5 rounded transition-colors">
+            <ChevronLeft size={14} />
+          </button>
+          <button className="hover:text-red-500 p-0.5 rounded transition-colors">
+            <ChevronRight size={14} />
+          </button>
+          <button className="hover:text-red-500 p-0.5 rounded transition-colors" title="Add sheet (mock)">
+            <Plus size={14} />
+          </button>
+        </div>
+
+        {/* Dynamic Sheet Tabs */}
+        <div className="flex-1 flex overflow-x-auto h-full scrollbar-none">
+          {metadata?.sheets.map((sheet) => {
+            const isActive = activeSheet === sheet.title;
+            return (
+              <button
+                key={sheet.id}
+                onClick={() => setActiveSheet(sheet.title)}
+                className={`tab-button ${isActive ? "active" : ""}`}
+              >
+                <FileSpreadsheet size={13} className={isActive ? "text-red-500" : "text-gray-500"} />
+                <span>{sheet.title}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live sync details */}
+        <div className="hidden xs:flex items-center gap-2 text-[11px] text-gray-500 font-medium pl-3 border-l border-[#222225]">
+          <Check size={11} className="text-red-500" />
+          <span>Last sync: {syncTime || "Never"}</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
