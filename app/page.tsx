@@ -238,16 +238,32 @@ export default function SpreadsheetPage() {
     });
   };
 
+  const getEnrichConfig = (sheetName: string) => {
+    if (sheetName === "Outreach Tracker") {
+      return {
+        anchorIndex: 0,
+        enrichCols: [1, 5]
+      };
+    }
+    return {
+      anchorIndex: 1,
+      enrichCols: [6, 7]
+    };
+  };
+
   const handleEnrichClick = (originalRowIdx: number, rowValues: string[]) => {
+    const config = getEnrichConfig(activeSheet);
+    const isOutreach = activeSheet === "Outreach Tracker";
+    
     setEnrichModal({
       isOpen: true,
       sheetName: activeSheet,
       rowIdx: originalRowIdx,
-      name: rowValues[1] || "",
-      url: customEnrichments[activeSheet]?.[originalRowIdx]?.[6] || rowValues[6] || "",
-      followers: customEnrichments[activeSheet]?.[originalRowIdx]?.[7] || rowValues[7] || "",
-      platform: customEnrichments[activeSheet]?.[originalRowIdx]?.[5] || rowValues[5] || "",
-      notes: customEnrichments[activeSheet]?.[originalRowIdx]?.[11] || rowValues[11] || "",
+      name: rowValues[config.anchorIndex] || "",
+      url: customEnrichments[activeSheet]?.[originalRowIdx]?.[isOutreach ? 5 : 6] || rowValues[isOutreach ? 5 : 6] || "",
+      followers: customEnrichments[activeSheet]?.[originalRowIdx]?.[isOutreach ? 1 : 7] || rowValues[isOutreach ? 1 : 7] || "",
+      platform: customEnrichments[activeSheet]?.[originalRowIdx]?.[isOutreach ? 4 : 5] || rowValues[isOutreach ? 4 : 5] || "",
+      notes: customEnrichments[activeSheet]?.[originalRowIdx]?.[isOutreach ? 9 : 11] || rowValues[isOutreach ? 9 : 11] || "",
     });
   };
 
@@ -285,15 +301,17 @@ export default function SpreadsheetPage() {
   const handleBulkAiEnrich = async () => {
     if (!sheetData || sheetData.length === 0) return;
     
-    // Find empty rows (where Col 1 Name is not empty, but Col 6 URL and Col 7 Followers are empty)
+    const config = getEnrichConfig(activeSheet);
+    const isOutreach = activeSheet === "Outreach Tracker";
+    
     const emptyRowsToEnrich: { originalIndex: number; name: string }[] = [];
     
     sheetData.forEach((row, rIdx) => {
       if (rIdx === 0) return; // Skip header
       
-      const name = row[1];
-      const hasUrl = customEnrichments[activeSheet]?.[rIdx]?.[6] || row[6];
-      const hasFollowers = customEnrichments[activeSheet]?.[rIdx]?.[7] || row[7];
+      const name = row[config.anchorIndex];
+      const hasUrl = customEnrichments[activeSheet]?.[rIdx]?.[isOutreach ? 5 : 6] || row[isOutreach ? 5 : 6];
+      const hasFollowers = customEnrichments[activeSheet]?.[rIdx]?.[isOutreach ? 1 : 7] || row[isOutreach ? 1 : 7];
       
       if (name && !hasUrl && !hasFollowers) {
         emptyRowsToEnrich.push({ originalIndex: rIdx, name });
@@ -326,10 +344,17 @@ export default function SpreadsheetPage() {
               if (!next[activeSheet]) next[activeSheet] = {};
               if (!next[activeSheet][item.originalIndex]) next[activeSheet][item.originalIndex] = {};
               
-              next[activeSheet][item.originalIndex][5] = data.platform || "Instagram";
-              next[activeSheet][item.originalIndex][6] = data.url || "";
-              next[activeSheet][item.originalIndex][7] = data.followers || "TBD";
-              next[activeSheet][item.originalIndex][11] = data.notes || "";
+              if (isOutreach) {
+                next[activeSheet][item.originalIndex][4] = data.platform || "Instagram";
+                next[activeSheet][item.originalIndex][5] = data.url || "";
+                next[activeSheet][item.originalIndex][1] = data.followers || "TBD";
+                next[activeSheet][item.originalIndex][9] = data.notes || "";
+              } else {
+                next[activeSheet][item.originalIndex][5] = data.platform || "Instagram";
+                next[activeSheet][item.originalIndex][6] = data.url || "";
+                next[activeSheet][item.originalIndex][7] = data.followers || "TBD";
+                next[activeSheet][item.originalIndex][11] = data.notes || "";
+              }
               
               localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
               return next;
@@ -353,6 +378,89 @@ export default function SpreadsheetPage() {
       setBulkProgress("");
     }
   };
+
+  // Right-click context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    rowIdx: number;
+    colIdx: number;
+    originalValue: string;
+    isCustom: boolean;
+    isStatic: boolean;
+  } | null>(null);
+
+  const handleCellContextMenu = (e: React.MouseEvent, rowIdx: number, colIdx: number) => {
+    if (rowIdx === 0) return; // Skip header
+    
+    const isEnrichableSheet = activeSheet === "Muslim Influencer Targets" || activeSheet === "Afghan Influencer Targets";
+    
+    const originalVal = sheetData[rowIdx]?.[colIdx] || "";
+    const currentVal = enrichedSheetData[rowIdx]?.[colIdx] || "";
+    const isDifferent = currentVal !== originalVal;
+    
+    if (isDifferent || isEnrichableSheet) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const hasStatic = ENRICHMENTS[activeSheet]?.[rowIdx]?.[colIdx] !== undefined;
+      const hasCustom = customEnrichments[activeSheet]?.[rowIdx]?.[colIdx] !== undefined;
+      
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        rowIdx,
+        colIdx,
+        originalValue: originalVal,
+        isCustom: hasCustom,
+        isStatic: hasStatic
+      });
+    }
+  };
+
+  const handleUndoEnrichment = () => {
+    if (!contextMenu) return;
+    const { rowIdx, colIdx, isStatic, originalValue } = contextMenu;
+    
+    setCustomEnrichments((prev) => {
+      const next = { ...prev };
+      if (!next[activeSheet]) next[activeSheet] = {};
+      if (!next[activeSheet][rowIdx]) next[activeSheet][rowIdx] = {};
+      
+      if (isStatic) {
+        // Revert static enrichment by overriding it with the original value from sheetData
+        next[activeSheet][rowIdx][colIdx] = originalValue;
+      } else {
+        // Revert custom enrichment by deleting the override
+        delete next[activeSheet][rowIdx][colIdx];
+        if (Object.keys(next[activeSheet][rowIdx]).length === 0) {
+          delete next[activeSheet][rowIdx];
+        }
+      }
+      
+      localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
+      return next;
+    });
+    
+    setContextMenu(null);
+    setStatusText("Enrichment reverted to original value");
+    setTimeout(() => setStatusText("Ready"), 2000);
+  };
+
+  // Close context menu on global click/scroll
+  useEffect(() => {
+    const handleCloseMenu = () => {
+      setContextMenu(null);
+    };
+    window.addEventListener("click", handleCloseMenu);
+    window.addEventListener("contextmenu", handleCloseMenu);
+    window.addEventListener("scroll", handleCloseMenu, true);
+    return () => {
+      window.removeEventListener("click", handleCloseMenu);
+      window.removeEventListener("contextmenu", handleCloseMenu);
+      window.removeEventListener("scroll", handleCloseMenu, true);
+    };
+  }, []);
   
   // Interactive spreadsheet states
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -734,7 +842,7 @@ export default function SpreadsheetPage() {
               return (
                 <tr key={rowIndex}>
                   {/* Left Row Number Headers (Excel/Google Sheets-like persistent numbering) */}
-                  <td className={`row-header ${isSelectedRow ? "active-row" : ""}`}>
+                  <td className={`row-header ${isSelectedRow ? "active-row" : ""} ${originalRowIndex === 0 ? "first-row-header" : ""}`}>
                     {originalRowIndex + 1}
                   </td>
 
@@ -745,27 +853,31 @@ export default function SpreadsheetPage() {
                     
                     // Determine cell alignment & special styles
                     const isNum = isNumeric(cellVal);
-                    const isEnriched = 
-                      (ENRICHMENTS[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined) ||
-                      (customEnrichments[activeSheet]?.[originalRowIndex]?.[colIndex] !== undefined);
+                    
+                    // A cell is enriched if its value differs from the original spreadsheet cell (and it is not header)
+                    const originalVal = hasData ? sheetData[originalRowIndex]?.[colIndex] || "" : "";
+                    const isEnriched = !isSpreadsheetHeader && hasData && cellVal !== originalVal;
                     
                     const cellClass = `grid-cell ${isSelected ? "selected" : ""} ${
                       isSpreadsheetHeader ? "data-header-cell" : ""
                     } ${isNum ? "cell-number" : ""} ${isEnriched ? "enriched-cell" : ""}`;
 
-                    // Show enrich button if the cell is empty, the target has a name, and it is Handle/URL (6) or Followers (7)
+                    // Show enrich button if the cell is empty, the target has a name, and it matches configured columns
+                    const config = getEnrichConfig(activeSheet);
+                    const anchorName = hasData ? rowValues[config.anchorIndex] || "" : "";
                     const showEnrichButton = 
                       !isSpreadsheetHeader && 
                       hasData && 
                       !cellVal && 
-                      rowValues[1] && 
-                      (colIndex === 6 || colIndex === 7);
+                      anchorName && 
+                      config.enrichCols.includes(colIndex);
 
                     return (
                       <td
                         key={colIndex}
                         className={cellClass}
                         onClick={() => handleCellClick(originalRowIndex, colIndex)}
+                        onContextMenu={(e) => handleCellContextMenu(e, originalRowIndex, colIndex)}
                         style={{
                           minWidth: "120px",
                           maxWidth: "250px",
@@ -980,10 +1092,18 @@ export default function SpreadsheetPage() {
               </button>
               <button
                 onClick={() => {
-                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 5, enrichModal.platform);
-                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 6, enrichModal.url);
-                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 7, enrichModal.followers);
-                  saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 11, enrichModal.notes);
+                  const isOutreach = enrichModal.sheetName === "Outreach Tracker";
+                  if (isOutreach) {
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 4, enrichModal.platform);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 5, enrichModal.url);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 1, enrichModal.followers);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 9, enrichModal.notes);
+                  } else {
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 5, enrichModal.platform);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 6, enrichModal.url);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 7, enrichModal.followers);
+                    saveCustomEnrichment(enrichModal.sheetName, enrichModal.rowIdx, 11, enrichModal.notes);
+                  }
                   setEnrichModal(null);
                   setStatusText(`Enriched ${enrichModal.name} successfully`);
                   setTimeout(() => setStatusText("Ready"), 2000);
@@ -994,6 +1114,100 @@ export default function SpreadsheetPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-[#121214] border border-[#2c2c30] rounded-lg shadow-2xl py-1.5 z-50 text-left min-w-[200px] shadow-red-950/20 text-xs"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header/Info */}
+          <div className="px-3 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider border-b border-[#222225] pb-1.5 mb-1.5">
+            Cell Actions
+          </div>
+          
+          {/* Original Value View */}
+          <div className="px-3 py-1 text-gray-400">
+            <span className="block text-[9px] text-red-500 font-bold uppercase tracking-wider mb-0.5">Original Value:</span>
+            <span className="font-mono text-gray-300 break-all select-all block bg-[#0d0d0f] border border-[#222225] rounded px-1.5 py-1 mt-0.5">
+              {contextMenu.originalValue || "(blank)"}
+            </span>
+          </div>
+
+          <div className="h-px bg-[#222225] my-1.5"></div>
+
+          {/* Conditional Actions */}
+          {(() => {
+            const originalVal = sheetData[contextMenu.rowIdx]?.[contextMenu.colIdx] || "";
+            const currentVal = enrichedSheetData[contextMenu.rowIdx]?.[contextMenu.colIdx] || "";
+            const isDifferent = currentVal !== originalVal;
+            const targetRowValues = sheetData[contextMenu.rowIdx] || [];
+
+            if (isDifferent) {
+              return (
+                <button
+                  onClick={handleUndoEnrichment}
+                  className="w-full text-left px-3 py-2 text-red-400 hover:text-white hover:bg-red-950/30 transition-colors font-semibold flex items-center gap-2"
+                >
+                  <span>↩</span> Revert to Original
+                </button>
+              );
+            } else {
+              return (
+                <>
+                  <button
+                    onClick={async () => {
+                      const config = getEnrichConfig(activeSheet);
+                      const name = targetRowValues[config.anchorIndex] || "";
+                      if (!name) return;
+                      setContextMenu(null);
+                      setStatusText(`AI Enriching ${name}...`);
+                      try {
+                        const res = await fetch(`/api/enrich?name=${encodeURIComponent(name)}`);
+                        if (!res.ok) throw new Error();
+                        const data = await res.json();
+                        if (data.success) {
+                          setCustomEnrichments((prev) => {
+                            const next = { ...prev };
+                            if (!next[activeSheet]) next[activeSheet] = {};
+                            if (!next[activeSheet][contextMenu.rowIdx]) next[activeSheet][contextMenu.rowIdx] = {};
+                            
+                            next[activeSheet][contextMenu.rowIdx][5] = data.platform || "Instagram";
+                            next[activeSheet][contextMenu.rowIdx][6] = data.url || "";
+                            next[activeSheet][contextMenu.rowIdx][7] = data.followers || "TBD";
+                            next[activeSheet][contextMenu.rowIdx][11] = data.notes || "";
+                            
+                            localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
+                            return next;
+                          });
+                          setStatusText(`AI Enriched ${name} successfully!`);
+                        } else {
+                          setStatusText("AI Enrichment failed");
+                        }
+                      } catch (e) {
+                        setStatusText("AI Enrichment failed");
+                      }
+                      setTimeout(() => setStatusText("Ready"), 2000);
+                    }}
+                    className="w-full text-left px-3 py-2 text-red-400 hover:text-white hover:bg-red-950/30 transition-colors font-semibold flex items-center gap-2"
+                  >
+                    <span>✦</span> AI Auto-Enrich Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setContextMenu(null);
+                      handleEnrichClick(contextMenu.rowIdx, targetRowValues);
+                    }}
+                    className="w-full text-left px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors font-semibold flex items-center gap-2"
+                  >
+                    <span>✎</span> Open Enrich Modal
+                  </button>
+                </>
+              );
+            }
+          })()}
         </div>
       )}
     </div>

@@ -69,7 +69,7 @@ Rules & Conditions:
 1. Target Search: Focus on finding profiles matching the clean name. 
 2. Loose Matching & Afghan Context: If the search results do not show a direct, exact-match profile URL, look for related profiles of individuals sharing the same name who have a solid foundation of followers (typically 5K+ or 10K+ followers) and who fit the profile of an **Afghan Influencer** (e.g., cricketers, models, journalists, TV hosts, digital creators, authors, or public figures connected to Afghanistan, Afghan sports, or local media).
 3. Primary Profile: Prefer Instagram first, then TikTok, then YouTube, then X (Twitter), then Facebook.
-4. Clean URLs: Provide direct, clean profile links (e.g., 'https://www.instagram.com/username/'). Strip off redirections or search query tags.
+4. Clean URLs: Provide direct, clean profile links (e.g., 'https://www.instagram.com/username/'). Strictly strip off redirections, search query tags, trailing punctuation (like periods, parentheses, commas), sub-pages, or scraper directories. Ensure the username matches the actual active social media handle to avoid 404 dead links.
 5. Followers: Look for the current approximate follower count on the chosen platform (e.g., '150K IG', '25K TikTok').
 6. Notes: Write a brief, professional note explaining why they are suitable as an Afghan influencer, their niche, and their follower foundation.
 7. Format: Return ONLY a raw JSON object matching the structure below. Do not wrap in markdown code blocks or add extra explanation.
