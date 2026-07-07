@@ -1162,6 +1162,7 @@ export default function SpreadsheetPage() {
                       const config = getEnrichConfig(activeSheet);
                       const name = targetRowValues[config.anchorIndex] || "";
                       if (!name) return;
+                      const targetRowIdx = contextMenu.rowIdx; // Cache row index before closing context menu
                       setContextMenu(null);
                       setStatusText(`AI Enriching ${name}...`);
                       try {
@@ -1172,12 +1173,12 @@ export default function SpreadsheetPage() {
                           setCustomEnrichments((prev) => {
                             const next = { ...prev };
                             if (!next[activeSheet]) next[activeSheet] = {};
-                            if (!next[activeSheet][contextMenu.rowIdx]) next[activeSheet][contextMenu.rowIdx] = {};
+                            if (!next[activeSheet][targetRowIdx]) next[activeSheet][targetRowIdx] = {};
                             
-                            next[activeSheet][contextMenu.rowIdx][5] = data.platform || "Instagram";
-                            next[activeSheet][contextMenu.rowIdx][6] = data.url || "";
-                            next[activeSheet][contextMenu.rowIdx][7] = data.followers || "TBD";
-                            next[activeSheet][contextMenu.rowIdx][11] = data.notes || "";
+                            next[activeSheet][targetRowIdx][5] = data.platform || "";
+                            next[activeSheet][targetRowIdx][6] = data.url || "";
+                            next[activeSheet][targetRowIdx][7] = data.followers || "";
+                            next[activeSheet][targetRowIdx][11] = data.notes || "";
                             
                             localStorage.setItem("sheet_custom_enrichments", JSON.stringify(next));
                             return next;
@@ -1197,8 +1198,9 @@ export default function SpreadsheetPage() {
                   </button>
                   <button
                     onClick={() => {
+                      const targetRowIdx = contextMenu.rowIdx; // Cache row index before closing context menu
                       setContextMenu(null);
-                      handleEnrichClick(contextMenu.rowIdx, targetRowValues);
+                      handleEnrichClick(targetRowIdx, targetRowValues);
                     }}
                     className="w-full text-left px-3 py-2 text-gray-300 hover:text-white hover:bg-gray-800 transition-colors font-semibold flex items-center gap-2"
                   >
