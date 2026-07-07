@@ -730,6 +730,51 @@ export default function SpreadsheetPage() {
             </div>
             {/* Form Body */}
             <div className="p-6 flex flex-col gap-4">
+              {/* Quick Search Assistant */}
+              <div className="bg-[#0d0d0f] border border-[#222225] rounded-lg p-3">
+                <label className="block text-[10px] font-bold text-red-500 uppercase tracking-wider mb-2">
+                  ✦ Quick Search Assistant
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => {
+                      const query = encodeURIComponent(`${enrichModal.name} instagram`);
+                      window.open(`https://www.google.com/search?q=${query}`, "_blank");
+                    }}
+                    className="bg-[#1a1a1f] hover:bg-red-950/30 text-gray-300 hover:text-red-400 border border-[#2c2c30] hover:border-red-900 rounded px-2.5 py-1 text-[10px] font-semibold transition-all duration-150 flex items-center gap-1 active:scale-95"
+                  >
+                    Google IG
+                  </button>
+                  <button
+                    onClick={() => {
+                      const cleanName = enrichModal.name.split(/[(@]/)[0].trim().replace(/\s+/g, "");
+                      window.open(`https://www.instagram.com/explore/tags/${encodeURIComponent(cleanName)}`, "_blank");
+                    }}
+                    className="bg-[#1a1a1f] hover:bg-red-950/30 text-gray-300 hover:text-red-400 border border-[#2c2c30] hover:border-red-900 rounded px-2.5 py-1 text-[10px] font-semibold transition-all duration-150 flex items-center gap-1 active:scale-95"
+                  >
+                    Instagram Tag
+                  </button>
+                  <button
+                    onClick={() => {
+                      const cleanName = enrichModal.name.split(/[(@]/)[0].trim();
+                      window.open(`https://www.tiktok.com/search?q=${encodeURIComponent(cleanName)}`, "_blank");
+                    }}
+                    className="bg-[#1a1a1f] hover:bg-red-950/30 text-gray-300 hover:text-red-400 border border-[#2c2c30] hover:border-red-900 rounded px-2.5 py-1 text-[10px] font-semibold transition-all duration-150 flex items-center gap-1 active:scale-95"
+                  >
+                    TikTok Search
+                  </button>
+                  <button
+                    onClick={() => {
+                      const cleanName = enrichModal.name.split(/[(@]/)[0].trim();
+                      window.open(`https://x.com/search?q=${encodeURIComponent(cleanName)}&src=typed_query`, "_blank");
+                    }}
+                    className="bg-[#1a1a1f] hover:bg-red-950/30 text-gray-300 hover:text-red-400 border border-[#2c2c30] hover:border-red-900 rounded px-2.5 py-1 text-[10px] font-semibold transition-all duration-150 flex items-center gap-1 active:scale-95"
+                  >
+                    X Search
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                   Main Platform
