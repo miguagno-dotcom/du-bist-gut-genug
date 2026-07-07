@@ -68,23 +68,24 @@ Your job is to analyze the provided search results to find the primary active so
 Rules & Conditions:
 1. Target Search: Focus on finding profiles matching the clean name. 
 2. Loose Matching & Afghan Context: If the search results do not show a direct, exact-match profile URL, look for related profiles of individuals sharing the same name who have a solid foundation of followers (typically 5K+ or 10K+ followers) and who fit the profile of an **Afghan Influencer** (e.g., cricketers, models, journalists, TV hosts, digital creators, authors, or public figures connected to Afghanistan, Afghan sports, or local media).
-3. Primary Profile: Prefer Instagram first, then TikTok, then YouTube, then X (Twitter), then Facebook.
-4. Clean URLs: Provide direct, clean profile links (e.g., 'https://www.instagram.com/username/'). Strictly strip off redirections, search query tags, trailing punctuation (like periods, parentheses, commas), sub-pages, or scraper directories. Ensure the username matches the actual active social media handle to avoid 404 dead links.
-5. Followers: Look for the current approximate follower count on the chosen platform (e.g., '150K IG', '25K TikTok').
-6. Notes: Write a brief, professional note explaining why they are suitable as an Afghan influencer, their niche, and their follower foundation.
-7. Format: Return ONLY a raw JSON object matching the structure below. Do not wrap in markdown code blocks or add extra explanation.
+3. Primary Profile: Identify the platform where the influencer is most prominent, active, and holds the largest audience or highest engagement (this can be Facebook, YouTube, TikTok, Instagram, or X). Do not bias towards Instagram if their primary reach is on YouTube or Facebook.
+4. Clean URLs: Provide direct, clean profile links (e.g., 'https://www.instagram.com/username/', 'https://www.youtube.com/@channel', 'https://www.facebook.com/page'). Strictly strip off redirections, search query tags, trailing punctuation, sub-pages, or scraper directories.
+5. Followers: Look for the current approximate follower count on the chosen platform (e.g., '1.5M Subscribers', '250K FB Followers', '150K IG').
+6. Notes: Write a brief, professional note explaining why they are suitable, their main active platform, their niche, and their follower foundation.
+7. No Guessing: Do NOT invent, guess, or hallucinate social media profile links if they are not explicitly present in the search grounding data. If no verified active link is found in the search data, return "" (empty string) for both the url and platform.
+8. Format: Return ONLY a raw JSON object matching the structure below. Do not wrap in markdown code blocks or add extra explanation.
 
 JSON Structure:
 {
-  "platform": "Instagram",
-  "url": "https://www.instagram.com/username/",
-  "followers": "500K IG",
-  "notes": "Outreach notes on why they fit the campaign as an Afghan influencer."
+  "platform": "YouTube",
+  "url": "https://www.youtube.com/@username",
+  "followers": "1.2M Subscribers",
+  "notes": "Outreach notes on why they fit the campaign."
 }`
           },
           {
             role: "user",
-            content: `Influencer Name: ${cleanName}\n\nSearch Grounding Data:\n${searchData || "No search results available. Suggest best guess profiles."}`
+            content: `Influencer Name: ${cleanName}\n\nSearch Grounding Data:\n${searchData || "No search results available."}`
           }
         ],
         temperature: 0.2
@@ -113,22 +114,21 @@ JSON Structure:
     return NextResponse.json({
       success: true,
       url: result.url || "",
-      platform: result.platform || "Instagram",
-      followers: result.followers || "TBD",
+      platform: result.platform || "",
+      followers: result.followers || "",
       notes: result.notes || ""
     });
 
   } catch (error: any) {
     console.error("AI Search Enrichment Error:", error);
     
-    // Offline heuristic fallback on api/network failure
-    const guessedUsername = cleanName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    // Return empty URL if search fails or is rate-limited
     return NextResponse.json({
       success: true,
-      url: `https://www.instagram.com/${guessedUsername}/`,
-      platform: "Instagram",
-      followers: "TBD",
-      notes: `Heuristic Suggestion: Discovered profile could not be verified online. Check @${guessedUsername} on Instagram.`
+      url: "",
+      platform: "",
+      followers: "",
+      notes: "AI Notes: Could not verify profile details automatically. Search agent rate-limited or offline. Please try manual entry."
     });
   }
 }
